@@ -118,28 +118,38 @@ This is configured in Stage 5.
 > [!IMPORTANT]
 > If you have **3 or more nodes** it is recommended to make 3 of them controller nodes for a highly available control plane. This project configures **all nodes** to be able to run workloads. **Worker nodes** are therefore **optional**.
 
-1. Head over to the [Talos Linux Image Factory](https://factory.talos.dev) and follow the instructions. Be sure to only choose the **bare-minimum system extensions** as some might require additional configuration and prevent Talos from booting without it. Depending on your CPU start with the Intel/AMD system extensions (`i915`, `intel-ucode` & `mei` **or** `amdgpu` & `amd-ucode`), you can always add system extensions after Talos is installed and working.
+#### Current Hardware
 
-2. This will eventually lead you to download a Talos Linux ISO (or for SBCs a RAW) image. Make sure to note the **schematic ID** you will need this later on.
+This repo is pre-configured for 3 Mac Studio trashcan nodes:
 
-3. Flash the Talos ISO or RAW image to a USB drive and boot from it on your nodes.
+| Hostname | IP | MAC | Disk Serial |
+|----------|------|------|-------------|
+| `apk3s51` | `10.50.50.51` | `00:3e:e1:ca:65:ac` | `OW23092715AEFDC5F` |
+| `apk3s52` | `10.50.50.52` | `00:3e:e1:c4:89:b4` | `OW23091215A17F66C` |
+| `apk3s53` | `10.50.50.53` | `00:3e:e1:ca:74:a4` | `OW23092715AEFDC52` |
 
-4. Verify with `nmap` that your nodes are available on the network. (Replace `192.168.1.0/24` with the network your nodes are on.)
+**Talos Schematic ID:** `613e1592b2da41ae5e265e8789429f22e121aab91cb4deb6bc3c0b6262961245`
+
+These values are pre-filled in `nodes.sample.yaml` and `cluster.sample.yaml`. If your hardware changes, update those files before running `task init`.
+
+#### Talos ISO
+
+1. Download the Talos ISO from the [Talos Linux Image Factory](https://factory.talos.dev) using the schematic ID above, or generate a new one with the system extensions for your hardware.
+
+2. Flash the Talos ISO to a USB drive and boot from it on your nodes (or they may already be booted from a previous install).
+
+3. Verify with `nmap` that your nodes are available on the network:
 
     ```sh
-    nmap -Pn -n -p 50000 192.168.1.0/24 -vv | grep 'Discovered'
+    nmap -Pn -n -p 50000 10.50.50.0/24 -vv | grep 'Discovered'
     ```
 
 ### Stage 3: Local Workstation
 
-> [!TIP]
-> It is recommended to set the visibility of your repository to `Public` so you can easily request help if you get stuck.
-
-1. Create a new repository by clicking the green `Use this template` button at the top of this page, then clone the new repo you just created and `cd` into it. Alternatively you can us the [GitHub CLI](https://cli.github.com/) ...
+1. Clone this repository and `cd` into it:
 
     ```sh
-    export REPONAME="home-ops"
-    gh repo create $REPONAME --template onedr0p/cluster-template --disable-wiki --public --clone && cd $REPONAME
+    git clone https://github.com/nprodromou/apk3s-lh.git && cd apk3s-lh
     ```
 
 2. **Install** the [Mise CLI](https://mise.jdx.dev/getting-started.html#installing-mise-cli) on your workstation.
@@ -189,7 +199,7 @@ This is configured in Stage 5.
     task init
     ```
 
-2. Fill out `cluster.yaml` and `nodes.yaml` configuration files using the comments in those file as a guide.
+2. Review `cluster.yaml` and `nodes.yaml`. These are pre-filled from `cluster.sample.yaml` and `nodes.sample.yaml` with your environment values. The only field you need to fill in is `cloudflare_token`.
 
 3. **Single-Disk Storage is pre-configured.** The following templates are already included in this repo:
 
