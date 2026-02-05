@@ -191,58 +191,25 @@ This is configured in Stage 5.
 
 2. Fill out `cluster.yaml` and `nodes.yaml` configuration files using the comments in those file as a guide.
 
-3. **Configure Single-Disk Storage** by adding the Talos volume patches. Create or update `talos/patches/global/volumes.yaml`:
+3. **Single-Disk Storage is pre-configured.** The following templates are already included in this repo:
 
-    ```yaml
-    # Limit EPHEMERAL partition to leave room for Longhorn
-    apiVersion: v1alpha1
-    kind: VolumeConfig
-    name: EPHEMERAL
-    provisioning:
-      maxSize: 200GiB
-      grow: false
-    ---
-    # Create Longhorn storage partition from remaining space
-    apiVersion: v1alpha1
-    kind: UserVolumeConfig
-    name: longhorn
-    provisioning:
-      diskSelector:
-        match: system_disk
-      minSize: 500GiB
-      grow: true
-    mount:
-      mountpoint: /var/mnt/longhorn
-    filesystem:
-      type: xfs
-    ```
+    - **`talos/patches/global/volumes.yaml`** — Limits the EPHEMERAL partition to 200GB and creates a Longhorn XFS partition on the remaining disk space, mounted at `/var/mnt/longhorn`.
+    - **`talos/patches/global/machine-kubelet.yaml`** — Includes a bind mount from `/var/mnt/longhorn` to `/var/lib/longhorn` so Longhorn can access the storage partition.
+    - **`kubernetes/apps/longhorn-system/`** — Complete Flux manifests for Longhorn (HelmRepository, HelmRelease, namespace, Kustomization).
 
-    > **Important:** This configuration MUST be applied during initial Talos installation. It cannot be applied after the EPHEMERAL partition is created.
+    > **Important:** The VolumeConfig/UserVolumeConfig patches MUST be applied during initial Talos installation. They cannot be applied after the EPHEMERAL partition is created.
 
-4. **Add kubelet extra mounts** for Longhorn. In your `talconfig.yaml` or appropriate patch:
+    To adjust the EPHEMERAL partition size, edit `templates/config/talos/patches/global/volumes.yaml.j2`.
 
-    ```yaml
-    machine:
-      kubelet:
-        extraMounts:
-          - destination: /var/lib/longhorn
-            type: bind
-            source: /var/mnt/longhorn
-            options:
-              - bind
-              - rshared
-              - rw
-    ```
+4. **(Optional) Configure Storage Network** for Longhorn replication. If you have a dedicated storage VLAN/interface, add a Multus NetworkAttachmentDefinition after the cluster is bootstrapped.
 
-5. **(Optional) Configure Storage Network** for Longhorn replication. If you have a dedicated storage VLAN/interface, add a Multus NetworkAttachmentDefinition after the cluster is bootstrapped.
-
-6. Template out the kubernetes and talos configuration files:
+5. Template out the kubernetes and talos configuration files:
 
     ```sh
     task configure
     ```
 
-7. Push your changes to git:
+6. Push your changes to git:
 
     ```sh
     git add -A
@@ -281,9 +248,9 @@ This is configured in Stage 5.
     kubectl get pods --all-namespaces --watch
     ```
 
-### Stage 7: Configure Longhorn Storage
+### Stage 7: Verify Longhorn Storage
 
-After the cluster is bootstrapped, configure Longhorn:
+Longhorn is automatically deployed by Flux after the cluster is bootstrapped. The manifests are pre-configured in `kubernetes/apps/longhorn-system/`.
 
 1. **Verify the Longhorn partition exists** on each node:
 
@@ -293,53 +260,11 @@ After the cluster is bootstrapped, configure Longhorn:
     # Should show: /var/mnt/longhorn
     ```
 
-2. **Install Longhorn** via Flux. Create `kubernetes/apps/longhorn-system/longhorn/`:
+2. **Verify Longhorn pods are running** (Flux deploys Longhorn automatically):
 
-    ```yaml
-    # kubernetes/apps/longhorn-system/longhorn/ks.yaml
-    apiVersion: kustomize.toolkit.fluxcd.io/v1
-    kind: Kustomization
-    metadata:
-      name: longhorn
-      namespace: flux-system
-    spec:
-      interval: 30m
-      path: ./kubernetes/apps/longhorn-system/longhorn/app
-      prune: true
-      sourceRef:
-        kind: GitRepository
-        name: flux-system
-      wait: true
-    ```
-
-    ```yaml
-    # kubernetes/apps/longhorn-system/longhorn/app/helmrelease.yaml
-    apiVersion: helm.toolkit.fluxcd.io/v2
-    kind: HelmRelease
-    metadata:
-      name: longhorn
-      namespace: longhorn-system
-    spec:
-      interval: 30m
-      chart:
-        spec:
-          chart: longhorn
-          version: 1.7.2
-          sourceRef:
-            kind: HelmRepository
-            name: longhorn
-            namespace: flux-system
-      values:
-        defaultSettings:
-          defaultDataPath: /var/lib/longhorn
-          defaultDataLocality: best-effort
-          replicaAutoBalance: best-effort
-          # Storage network (optional - uncomment if using dedicated storage VLAN)
-          # storageNetwork: longhorn-system/storage-network
-        persistence:
-          defaultClassReplicaCount: 3
-        ingress:
-          enabled: false
+    ```sh
+    kubectl -n longhorn-system get pods
+    kubectl -n longhorn-system get nodes.longhorn.io
     ```
 
 3. **Label nodes for Longhorn disk auto-detection** (optional but recommended):
@@ -349,11 +274,11 @@ After the cluster is bootstrapped, configure Longhorn:
     kubectl annotate nodes --all node.longhorn.io/default-disks-config='[{"path":"/var/lib/longhorn","allowScheduling":true}]'
     ```
 
-4. **Verify Longhorn is running**:
+4. **(Optional) Configure backups** by editing the Longhorn HelmRelease values in `templates/config/kubernetes/apps/longhorn-system/longhorn/app/helmrelease.yaml.j2` and uncommenting the `backupTarget` setting:
 
-    ```sh
-    kubectl -n longhorn-system get pods
-    kubectl -n longhorn-system get nodes.longhorn.io
+    ```yaml
+    defaultSettings:
+      backupTarget: nfs://<nas-ip>:/backup/longhorn
     ```
 
 ---
@@ -414,10 +339,9 @@ If you need to rebuild the entire cluster:
 
 ### Longhorn Backup Configuration (Recommended)
 
-Configure Longhorn to backup to an external NFS or S3 target:
+Configure Longhorn to backup to an external NFS or S3 target by uncommenting the `backupTarget` setting in `templates/config/kubernetes/apps/longhorn-system/longhorn/app/helmrelease.yaml.j2`:
 
 ```yaml
-# In your Longhorn HelmRelease values
 defaultSettings:
   backupTarget: nfs://<nas-ip>:/backup/longhorn
   # OR for S3:
@@ -425,7 +349,7 @@ defaultSettings:
   # backupTargetCredentialSecret: longhorn-backup-secret
 ```
 
-Create recurring backup jobs:
+Then create a `RecurringJob` resource for automated backups (apply this after Longhorn is running):
 
 ```yaml
 apiVersion: longhorn.io/v1beta2
@@ -649,7 +573,7 @@ If you have a dedicated storage VLAN, you can isolate Longhorn replication traff
         }
     ```
 
-3. **Update Longhorn settings**:
+3. **Update Longhorn settings** by uncommenting the `storageNetwork` line in `templates/config/kubernetes/apps/longhorn-system/longhorn/app/helmrelease.yaml.j2`:
 
     ```yaml
     defaultSettings:

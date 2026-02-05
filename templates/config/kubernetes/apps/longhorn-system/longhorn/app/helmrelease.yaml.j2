@@ -1,0 +1,27 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: longhorn
+spec:
+  chart:
+    spec:
+      chart: longhorn
+      version: 1.7.2
+      sourceRef:
+        kind: HelmRepository
+        name: longhorn
+  interval: 1h
+  values:
+    defaultSettings:
+      defaultDataPath: /var/lib/longhorn
+      defaultDataLocality: best-effort
+      replicaAutoBalance: best-effort
+      # Storage network (optional - uncomment if using dedicated storage VLAN)
+      # storageNetwork: longhorn-system/storage-network
+      # Backup target (optional - uncomment and set your NFS/S3 target)
+      # backupTarget: nfs://<nas-ip>:/backup/longhorn
+    persistence:
+      defaultClassReplicaCount: 3
+    ingress:
+      enabled: false
