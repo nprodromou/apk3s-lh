@@ -1,13 +1,20 @@
 ---
-nodes: []
-  # - name: ""            # (REQUIRED) Name of the node (must match [a-z0-9-\]+)
-  #   address: ""         # (REQUIRED) IP address of the node (must be in the node_cidr)
-  #   controller: true    # (REQUIRED) Set to true if this is a controller node
-  #   disk: ""            # (REQUIRED) Device path or serial number of the disk for this node (talosctl get disks -n <ip> --insecure)
-  #   mac_addr: ""        # (REQUIRED) MAC address of the NIC for this node (talosctl get links -n <ip> --insecure)
-  #   schematic_id: ""    # (REQUIRED) Schematic ID from https://factory.talos.dev/
-  #   mtu: 1500           # (ADVANCED/OPTIONAL) MTU for the NIC. DEFAULT: 1500
-  #   secureboot: false   # (ADVANCED/OPTIONAL) SecureBoot mode on UEFI platforms. Ref: https://www.talos.dev/latest/talos-guides/install/bare-metal-platforms/secureboot
-  #   encrypt_disk: false # (ADVANCED/OPTIONAL) TPM-based disk encryption. Ref: https://www.talos.dev/latest/talos-guides/install/bare-metal-platforms/secureboot
-  #   kernel_modules: []  # (ADVANCED/OPTIONAL) Only applicable if the `schematic_id` you've provided contains system extensions that require kernel modules to correctly load - Example: ["nvidia", "nvidia_uvm", "nvidia_drm", "nvidia_modeset", "zfs"]
-  # ...
+nodes:
+  - name: "apk3s51"
+    address: "10.50.50.51"
+    controller: true
+    disk: "OW23092715AEFDC5F"
+    mac_addr: "00:3e:e1:ca:65:ac"
+    schematic_id: "613e1592b2da41ae5e265e8789429f22e121aab91cb4deb6bc3c0b6262961245"
+  - name: "apk3s52"
+    address: "10.50.50.52"
+    controller: true
+    disk: "OW23091215A17F66C"
+    mac_addr: "00:3e:e1:c4:89:b4"
+    schematic_id: "613e1592b2da41ae5e265e8789429f22e121aab91cb4deb6bc3c0b6262961245"
+  - name: "apk3s53"
+    address: "10.50.50.53"
+    controller: true
+    disk: "OW23092715AEFDC52"
+    mac_addr: "00:3e:e1:ca:74:a4"
+    schematic_id: "613e1592b2da41ae5e265e8789429f22e121aab91cb4deb6bc3c0b6262961245"

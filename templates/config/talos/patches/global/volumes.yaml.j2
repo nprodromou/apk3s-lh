@@ -1,0 +1,21 @@
+# Limit EPHEMERAL partition to leave room for Longhorn
+apiVersion: v1alpha1
+kind: VolumeConfig
+name: EPHEMERAL
+provisioning:
+  maxSize: 200GiB
+  grow: false
+---
+# Create Longhorn storage partition from remaining space
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: longhorn
+provisioning:
+  diskSelector:
+    match: system_disk
+  minSize: 500GiB
+  grow: true
+mount:
+  mountpoint: /var/mnt/longhorn
+filesystem:
+  type: xfs
