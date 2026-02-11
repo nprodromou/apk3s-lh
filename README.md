@@ -1,41 +1,29 @@
-# Cluster Template (Single-Disk Longhorn Edition)
+# apk3s-lh
 
-> **Fork Note:** This is a modified version of [onedr0p/cluster-template](https://github.com/onedr0p/cluster-template) configured for **single-disk architecture with Longhorn storage**. See the [Single-Disk Storage Architecture](#-single-disk-storage-architecture) section for details.
+Kubernetes cluster running on 3 Mac Studio nodes with [Talos Linux](https://github.com/siderolabs/talos), [Flux](https://github.com/fluxcd/flux2) for GitOps, and [Longhorn](https://github.com/longhorn/longhorn) for persistent storage on a single-disk architecture.
 
-Welcome to my template designed for deploying a single Kubernetes cluster. Whether you're setting up a cluster at home on bare-metal or virtual machines (VMs), this project aims to simplify the process and make Kubernetes more accessible. This template is inspired by my personal [home-ops](https://github.com/onedr0p/home-ops) repository, providing a practical starting point for anyone interested in managing their own Kubernetes environment.
+Based on [onedr0p/cluster-template](https://github.com/onedr0p/cluster-template), modified for single-disk Longhorn storage.
 
-At its core, this project leverages [makejinja](https://github.com/mirkolenz/makejinja), a powerful tool for rendering templates. By reading configuration files—such as [cluster.yaml](./cluster.sample.yaml) and [nodes.yaml](./nodes.sample.yaml)—Makejinja generates the necessary configurations to deploy a Kubernetes cluster with the following features:
+## Components
 
-- Easy configuration through YAML files.
-- Compatibility with home setups, whether on physical hardware or VMs.
-- A modular and extensible approach to cluster deployment and management.
-- **Single-disk storage** using Longhorn with automatic replica rebuilding.
+- **OS:** [Talos Linux](https://github.com/siderolabs/talos)
+- **GitOps:** [Flux](https://github.com/fluxcd/flux2)
+- **CNI:** [Cilium](https://github.com/cilium/cilium)
+- **Storage:** [Longhorn](https://github.com/longhorn/longhorn) (single-disk, 3x replication)
+- **Ingress:** [Envoy Gateway](https://github.com/envoyproxy/gateway)
+- **DNS:** [external-dns](https://github.com/kubernetes-sigs/external-dns) + [k8s-gateway](https://github.com/ori-edge/k8s_gateway)
+- **Certificates:** [cert-manager](https://github.com/cert-manager/cert-manager) (Let's Encrypt)
+- **Tunnel:** [cloudflared](https://github.com/cloudflare/cloudflared) (Cloudflare Tunnel)
+- **Secrets:** [SOPS](https://github.com/getsops/sops) with Age encryption
+- **Extras:** [spegel](https://github.com/spegel-org/spegel) (registry mirror), [reloader](https://github.com/stakater/Reloader)
 
-With this approach, you'll gain a solid foundation to build and manage your Kubernetes cluster efficiently.
-
-## Features
-
-A Kubernetes cluster deployed with [Talos Linux](https://github.com/siderolabs/talos) and an opinionated implementation of [Flux](https://github.com/fluxcd/flux2) using [GitHub](https://github.com/) as the Git provider, [sops](https://github.com/getsops/sops) to manage secrets and [cloudflared](https://github.com/cloudflare/cloudflared) to access applications external to your local network.
-
-- **Required:** Some knowledge of [Containers](https://opencontainers.org/), [YAML](https://noyaml.com/), [Git](https://git-scm.com/), and a **Cloudflare account** with a **domain**.
-- **Included components:** [flux](https://github.com/fluxcd/flux2), [cilium](https://github.com/cilium/cilium), [cert-manager](https://github.com/cert-manager/cert-manager), [spegel](https://github.com/spegel-org/spegel), [reloader](https://github.com/stakater/Reloader), [envoy-gateway](https://github.com/envoyproxy/gateway), [external-dns](https://github.com/kubernetes-sigs/external-dns), [cloudflared](https://github.com/cloudflare/cloudflared), and **[longhorn](https://github.com/longhorn/longhorn)**.
-
-**Other features include:**
-
-- Dev env managed w/ [mise](https://mise.jdx.dev/)
-- Workflow automation w/ [GitHub Actions](https://github.com/features/actions)
-- Dependency automation w/ [Renovate](https://www.mend.io/renovate)
-- Flux `HelmRelease` and `Kustomization` diffs w/ [flux-local](https://github.com/allenporter/flux-local)
-- **Single-disk storage architecture** with Longhorn for persistent volumes
-- **Storage network isolation** via dedicated VLAN (optional)
-
-Does this sound cool to you? If so, continue to read on!
+Configuration is rendered from `cluster.sample.yaml` and `nodes.sample.yaml` via [makejinja](https://github.com/mirkolenz/makejinja). Dependency updates are automated with [Renovate](https://www.mend.io/renovate).
 
 ---
 
 ## Single-Disk Storage Architecture
 
-This template is configured for a **single-disk architecture** where:
+This cluster uses a **single-disk architecture** where:
 
 1. **Talos OS** and **Longhorn storage** share the same physical NVMe/SSD
 2. **EPHEMERAL partition** is limited to ~200GB for container runtime, images, and etcd
@@ -82,41 +70,11 @@ With 3-node replication (Longhorn default), your **usable storage** is approxima
 
 ---
 
-## Let's Go!
+## Deployment Guide
 
-There are **7 stages** outlined below for completing this project, make sure you follow the stages in order.
+Follow these 6 stages in order to deploy (or rebuild) the cluster.
 
-### Stage 1: Hardware Configuration
-
-For a **stable** and **high-availability** production Kubernetes cluster, hardware selection is critical.
-
-#### Single-Disk Requirements
-
-| Role           | Cores | Memory | System Disk                    |
-|----------------|-------|--------|--------------------------------|
-| Control/Worker | 4+    | 16GB+  | 1TB+ NVMe/SSD (single disk)    |
-
-> **Recommended:** Use enterprise or prosumer NVMe drives. Consumer NVMe drives can work but may have issues with power loss protection and write endurance.
-
-#### Why NVMe/SSD Only?
-
-- Longhorn requires low-latency storage for reliable operation
-- HDDs are **not recommended** due to latency and IOPS limitations
-- USB-attached storage is **not recommended** due to reliability concerns
-
-#### Optional: Storage Network
-
-If you have multiple network interfaces, you can dedicate one for Longhorn replication traffic:
-
-- **Primary interface:** Kubernetes API, pod traffic, external access
-- **Storage interface:** Longhorn replica sync (can be a VLAN)
-
-This is configured in Stage 5.
-
-### Stage 2: Machine Preparation
-
-> [!IMPORTANT]
-> If you have **3 or more nodes** it is recommended to make 3 of them controller nodes for a highly available control plane. This project configures **all nodes** to be able to run workloads. **Worker nodes** are therefore **optional**.
+### Stage 1: Machine Preparation
 
 #### Current Hardware
 
@@ -144,7 +102,7 @@ These values are pre-filled in `nodes.sample.yaml` and `cluster.sample.yaml`. If
     nmap -Pn -n -p 50000 10.50.50.0/24 -vv | grep 'Discovered'
     ```
 
-### Stage 3: Local Workstation
+### Stage 2: Local Workstation
 
 1. Clone this repository and `cd` into it:
 
@@ -171,10 +129,10 @@ These values are pre-filled in `nodes.sample.yaml` and `cluster.sample.yaml`. If
     helm registry logout ghcr.io
     ```
 
-### Stage 4: Cloudflare configuration
+### Stage 3: Cloudflare Configuration
 
 > [!WARNING]
-> If any of the commands fail with `command not found` or `unknown command` it means `mise` is either not install or configured incorrectly.
+> If any of the commands fail with `command not found` or `unknown command` it means `mise` is either not installed or configured incorrectly.
 
 1. Create a Cloudflare API token for use with cloudflared and external-dns by reviewing the official [documentation](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/) and following the instructions below.
 
@@ -191,7 +149,7 @@ These values are pre-filled in `nodes.sample.yaml` and `cluster.sample.yaml`. If
     cloudflared tunnel create --credentials-file cloudflare-tunnel.json kubernetes
     ```
 
-### Stage 5: Cluster configuration
+### Stage 4: Cluster Configuration
 
 1. Generate the config files from the sample files:
 
@@ -227,10 +185,10 @@ These values are pre-filled in `nodes.sample.yaml` and `cluster.sample.yaml`. If
     git push
     ```
 
-### Stage 6: Bootstrap Talos, Kubernetes, and Flux
+### Stage 5: Bootstrap Talos, Kubernetes, and Flux
 
 > [!WARNING]
-> It might take a while for the cluster to be setup (10+ minutes is normal). During which time you will see a variety of error messages like: "couldn't get current server API group list," "error: no matching resources found", etc. 'Ready' will remain "False" as no CNI is deployed yet. **This is normal.** If this step gets interrupted, e.g. by pressing <kbd>Ctrl</kbd> + <kbd>C</kbd>, you likely will need to [reset the cluster](#-reset) before trying again
+> It might take a while for the cluster to be setup (10+ minutes is normal). During which time you will see a variety of error messages like: "couldn't get current server API group list," "error: no matching resources found", etc. 'Ready' will remain "False" as no CNI is deployed yet. **This is normal.** If this step gets interrupted, e.g. by pressing <kbd>Ctrl</kbd> + <kbd>C</kbd>, you likely will need to [reset the cluster](#reset) before trying again
 
 1. Install Talos:
 
@@ -258,16 +216,17 @@ These values are pre-filled in `nodes.sample.yaml` and `cluster.sample.yaml`. If
     kubectl get pods --all-namespaces --watch
     ```
 
-### Stage 7: Verify Longhorn Storage
+### Stage 6: Verify Longhorn Storage
 
 Longhorn is automatically deployed by Flux after the cluster is bootstrapped. The manifests are pre-configured in `kubernetes/apps/longhorn-system/`.
 
 1. **Verify the Longhorn partition exists** on each node:
 
     ```sh
-    # Check from your workstation
-    talosctl -n <node-ip> mounts | grep longhorn
-    # Should show: /var/mnt/longhorn
+    talosctl -n 10.50.50.51 mounts | grep longhorn
+    talosctl -n 10.50.50.52 mounts | grep longhorn
+    talosctl -n 10.50.50.53 mounts | grep longhorn
+    # Each should show: /var/mnt/longhorn
     ```
 
 2. **Verify Longhorn pods are running** (Flux deploys Longhorn automatically):
@@ -344,7 +303,7 @@ kubectl -n longhorn-system get volumes.longhorn.io
 If you need to rebuild the entire cluster:
 
 1. **Ensure you have backups** of critical PVC data (via Longhorn snapshots to NFS/S3)
-2. Follow Stage 2 through Stage 7 to rebuild
+2. Follow Stage 1 through Stage 6 to rebuild
 3. Restore PVCs from Longhorn backup targets
 
 ### Longhorn Backup Configuration (Recommended)
@@ -408,7 +367,7 @@ spec:
 4. Check TCP connectivity to both the internal and external gateways:
 
     ```sh
-    nmap -Pn -n -p 443 ${cluster_gateway_addr} ${cloudflare_gateway_addr} -vv
+    nmap -Pn -n -p 443 10.50.50.150 10.50.50.200 -vv
     ```
 
 5. Check the status of your wildcard `Certificate`:
@@ -452,13 +411,10 @@ task talos:reset
 
 ### Updating Talos node configuration
 
-> [!TIP]
-> Ensure you have updated `talconfig.yaml` and any patches with your updated configuration.
+Update the source templates under `templates/config/talos/` (e.g., patches, talconfig), then re-render and apply:
 
 ```sh
-# (Re)generate the Talos config
-task talos:generate-config
-# Apply the config to the node
+task configure
 task talos:apply-node IP=? MODE=?
 ```
 
@@ -474,20 +430,20 @@ task talos:upgrade-k8s
 
 ### Adding a node to your cluster
 
-1. **Prepare the new node**: Boot into maintenance mode
-2. **Get disk information**:
+1. **Prepare the new node**: Boot into Talos maintenance mode.
+2. **Get disk and network information**:
 
    ```sh
-   talosctl get disks -n <ip> --insecure
-   talosctl get links -n <ip> --insecure
+   talosctl get disks -n <new-node-ip> --insecure
+   talosctl get links -n <new-node-ip> --insecure
    ```
 
-3. **Update configuration**: Extend `talconfig.yaml` with new node info
-4. **Apply configuration**:
+3. **Add the node** to `nodes.sample.yaml` (and `nodes.yaml` if already generated) with hostname, IP, MAC, disk serial, and schematic ID.
+4. **Re-render and apply**:
 
    ```sh
-   task talos:generate-config
-   task talos:apply-node IP=?
+   task configure
+   task talos:apply-node IP=<new-node-ip>
    ```
 
 5. **Configure Longhorn disk** on the new node:
